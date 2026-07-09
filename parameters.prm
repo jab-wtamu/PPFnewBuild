@@ -1,0 +1,190 @@
+# ================================================================
+# Basic problem setup
+# ================================================================
+
+# Spatial dimension of the simulation.
+# dim = 3 means a full 3D problem, which greatly increases memory,
+# runtime, and output file size compared with 2D.
+set dim = 3
+
+# Initial uniform refinement level applied to the whole mesh before
+# adaptive refinement starts. A larger value means more cells everywhere
+# at the beginning, so the simulation starts heavier.
+# In 3D, even one extra refinement level can increase total cells a lot.
+set global refinement = 4
+
+# Polynomial degree of the finite-element basis.
+# degree = 2 means quadratic interpolation, which is more accurate than
+# degree = 1, but it also increases the number of unknowns per cell and
+# therefore increases memory use, solve time, and output size.
+set degree = 2
+
+
+# ================================================================
+# Base mesh geometry
+# ================================================================
+
+subsection Rectangular mesh
+  # Physical size of the domain in the x-direction.
+  set x size = 100.0
+
+  # Physical size of the domain in the y-direction.
+  set y size = 300.0
+
+  # Physical size of the domain in the z-direction.
+  set z size = 300.0
+
+  # Number of coarse blocks in x before refinement.
+  # This controls the initial mesh partitioning, not the final resolution.
+  set x subdivisions = 1
+
+  # Number of coarse blocks in y before refinement.
+  set y subdivisions = 3
+
+  # Number of coarse blocks in z before refinement.
+  set z subdivisions = 3
+end
+
+
+# ================================================================
+# Adaptive mesh refinement (AMR)
+# ================================================================
+
+# Turns adaptive refinement on.
+# When true, the code refines only selected regions instead of refining
+# the whole domain everywhere. This improves accuracy near interfaces,
+# but it can still produce very large output files if refined regions
+# contain many cells.
+set mesh adaptivity = true
+
+# Maximum allowed local refinement level.
+# Larger values allow very fine mesh near interfaces or active regions.
+# This is one of the main parameters that can make output files large.
+set max refinement = 5
+
+# Minimum allowed local refinement level.
+# Prevents the mesh from becoming too coarse in regions that have already
+# been refined or where some minimum baseline resolution is needed.
+set min refinement = 2
+
+# Number of time steps between remeshing operations.
+# Every 100 steps, the code checks where to refine/coarsen the mesh again.
+# Smaller values adapt the mesh more often, which can improve interface
+# tracking but adds overhead and can keep the mesh highly resolved.
+set remeshing period = 1000000
+
+subsection refinement criterion: phi
+  # Refine/coarsen based on the value of phi.
+  # This is usually done so the interface region is well resolved.
+
+  # "value" means the decision is based on phi itself, not its gradient
+  # or some other indicator.
+  set type = value
+
+  # Lower bound of phi for refinement.
+  # Cells with phi in this range are candidates for refinement.
+  # Since phi often transitions near the interface, this concentrates
+  # fine mesh near the evolving phase boundary.
+  set value lower bound = -0.99
+
+  # Upper bound of phi for refinement.
+  # Together with the lower bound, this defines the interface window.
+  # A wider range usually refines more cells and increases file size.
+  set value upper bound = 0.99
+end
+
+
+# ================================================================
+# Time integration
+# ================================================================
+
+# Size of one time step.
+# Smaller time steps improve temporal resolution and stability, but require
+# more total steps. This does not directly make each output file larger,
+# but it affects total runtime and how often the mesh evolves between outputs.
+set time step = 0.001
+
+# Total number of time steps in the simulation.
+# Combined with time step, this determines total simulated time:
+# total simulated time = time step * number steps
+set number steps = 200000
+
+subsection output
+  # Output schedule type.
+  # EQUAL_SPACING means output files are written at evenly spaced times
+  # across the full simulation.
+  set condition = EQUAL_SPACING
+
+  # Total number of output snapshots to save.
+  # This affects how many files are written, but not the size of each file.
+  # Even with only 10 outputs, each file can still be very large if the
+  # mesh is fine and many variables are stored.
+  set number = 100
+end
+
+
+
+# ================================================================
+# Boundary conditions
+# ================================================================
+
+# Natural boundary condition for u.
+# Usually corresponds to a zero-flux or weak-form natural condition,
+# depending on how the PDE is written.
+set boundary condition for u = Natural
+
+# Natural boundary condition for phi.
+# Common choice when no fixed phase value is imposed at the boundary.
+set boundary condition for phi = Natural
+
+# Natural boundary condition for xi1.
+# Again, typically means no explicit Dirichlet value is prescribed.
+set boundary condition for xi1 = Natural
+
+
+# ================================================================
+# Snow / Demange model constants
+# ================================================================
+
+# Initial reduced supersaturation.
+# This sets the starting thermodynamic driving force for growth.
+# Larger values generally increase growth tendency.
+set Model constant u0 = 0.3, DOUBLE
+
+# Surface-tension anisotropy in the x-y plane.
+# Controls directional preference of interface energy in the horizontal plane.
+# Larger anisotropy can promote faceting or preferred lateral growth directions.
+set Model constant eps_xy = 0.18, DOUBLE
+
+# Surface-tension anisotropy in the z direction.
+# Controls how strongly vertical growth differs from horizontal growth.
+set Model constant eps_z = 0.5, DOUBLE
+
+# Vertical/horizontal anisotropy balance parameter.
+# Helps tune whether morphology prefers plate-like or column-like behavior,
+# depending on how it enters the anisotropy formulation.
+set Model constant Gamma = 3.0, DOUBLE
+
+# Coupling constant between fields in the model.
+# This typically controls the strength of coupling between phase evolution
+# and supersaturation or diffusion effects.
+set Model constant lambda = 3.0, DOUBLE
+
+# Reduced diffusion coefficient.
+# Controls how quickly the diffusing field redistributes in the domain.
+# Larger diffusion tends to smooth gradients faster.
+# Here it is chosen from the Demange-paper relation:
+# D_tilde = 0.6267 * lambda
+set Model constant D_tilde = 1.8801, DOUBLE
+
+# Vapour depletion / attachment parameter.
+# Controls how strongly attachment or depletion contributes to growth dynamics.
+set Model constant Lsat = 3.0, DOUBLE
+
+# Small regularization parameter.
+# Prevents division-by-zero or singular behavior in expressions where
+# gradients or denominators may become very small.
+set Model constant regval = 1.0e-10, DOUBLE
+
+
+
