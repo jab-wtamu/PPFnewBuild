@@ -1,0 +1,59 @@
+#!/bin/bash
+
+#SBATCH --job-name=SupAnNewBuild
+
+#SBATCH --nodes=1
+
+#SBATCH --ntasks-per-node=64
+
+#SBATCH --cpus-per-task=1
+
+#SBATCH --mem=192G
+
+#SBATCH --time=24:00:00
+
+#SBATCH --partition=cpu
+
+#SBATCH --output=prisms_out.%j
+
+#SBATCH --error=prisms_err.%j
+
+
+
+set -e
+
+
+
+ml purge
+
+ml foss/2023b CMake/3.27.6 VTK/9.3.0 WebProxy
+
+
+
+PRISMS_DIR="/scratch/user/u.jb337251/PRISMS-PF3_PKG"
+
+export PRISMS_PF_DIR="$PRISMS_DIR/PF300"
+
+export PATH="$PRISMS_PF_DIR/bin:$PATH"
+
+
+
+echo "Running in: $(pwd)"
+
+echo "PRISMS_DIR=$PRISMS_DIR"
+
+echo "PRISMS_PF_DIR=$PRISMS_PF_DIR"
+
+
+
+rm -rf build
+
+
+
+cmake -B build -DCMAKE_BUILD_TYPE=DebugRelease
+
+cmake --build build
+
+
+
+mpirun -np "$SLURM_NTASKS" ./main-release
